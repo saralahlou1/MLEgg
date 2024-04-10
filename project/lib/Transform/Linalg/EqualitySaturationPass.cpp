@@ -1,8 +1,11 @@
 // this is a pass
 #include <mlir/Dialect/Linalg/IR/Linalg.h>
+#include <mlir/IR/OperationSupport.h>
+#include <mlir/IR/Value.h>
 #include <vector>
 
 #include "Transform/Linalg/EqualitySaturationPass.h"
+#include "Support/Graph.h"
 
 void EqualitySaturationPass::runOnOperation() {
     // assume structure.
@@ -34,6 +37,8 @@ void EqualitySaturationPass::runOnOperation() {
         // its arguments are its ins
         // we don't have to consider its outs (for linalg, it's inits only)
         // we don't have to worry about dimensions either (presumably they're right)
+        // TODO: make this a template?
+        Graph graph;
         for (mlir::linalg::LinalgOp op : filtered_ops) {
             // we love dot.
             // i wrote a helper class for dot.
@@ -44,12 +49,32 @@ void EqualitySaturationPass::runOnOperation() {
             // the internalOperation.getOperands() is the "ins" and "outs"
             // we only want the ins
             // a value might or might not have an operation associated with it
-            // if it doesn't, then it's an egg variable
             // and if it does, then the name is meaningless past as an id
             // value names are unique by definition
 
+            // ok so all of that above was irrelevant.
+
+            // now that we have every linalg op, we're going to go through and follow all the relevant values
+            // we're going to be redundant and verbose because i don't care
+            mlir::OperationName name = internalOperation->getName();
+            // get the result
+            mlir::Value result = internalOperation->getResult(0);
+            // get only the ins
+            mlir::Value arg1 = internalOperation->getOperand(0);
+            mlir::Value arg2 = internalOperation->getOperand(1);
+
+            // // do we follow the values?
+            // no, because they're unique (because of SSA)
+            // how do i order these?
+            auto& node = graph.add_node(name.getIdentifier().str(), result);
+            Graph::Node& child_1 = graph.add_node("", arg1);
+            Graph::Node& child_2 = graph.add_node("", arg2);
+            node.children.push_back(child_1);
+            node.children.push_back(child_2);
+            llvm::outs() << node.children.size();
         }
 
+        graph.to_file("out.gv");
 
         // pass it to rust program
         // TODO: FFI binding?

@@ -54,3 +54,5 @@ build/*
 
 # Clangd
 .cache/clangd/*
+
+*.gv
