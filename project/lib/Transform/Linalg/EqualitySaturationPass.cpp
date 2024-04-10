@@ -71,17 +71,20 @@ void EqualitySaturationPass::runOnOperation() {
             Graph::Node& child_2 = graph.add_node("", arg2);
             node.children.push_back(child_1);
             node.children.push_back(child_2);
-            llvm::outs() << node.children.size();
         }
 
         graph.to_file("out.gv");
 
         // pass it to rust program
         // TODO: FFI binding?
+        system("eqsat out.gv");
 
         // get the result from the rust program
+        // read the file
+        Graph returned = graph.from_file("out2.gv");
 
         // reassociate the nodes in the result with the nodes in the block
+        // these are numbered the same as the original graph; we can use them together to rebuild
 
         // make the necessary changes
 

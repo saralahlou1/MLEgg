@@ -54,3 +54,7 @@ void Graph::to_file(const std::string& filename) {
     // clean up
     file.close();
 }
+
+Graph Graph::from_file(const std::string& filename) {
+    return Graph();
+}

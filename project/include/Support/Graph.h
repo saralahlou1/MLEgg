@@ -13,6 +13,7 @@ public:
     void add_edge(std::string label, mlir::Value from, mlir::Value to);
     //void add_edge(std::string label, T from, T to);
     void to_file(const std::string& filename);
+    Graph from_file(const std::string& filename);
 
     struct Node {
         const int id;
