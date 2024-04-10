@@ -49,3 +49,6 @@ _deps
 # Swap Files #
 .*.kate-swp
 .swp.*
+
+# Clangd
+.cache/clangd/*
