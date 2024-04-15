@@ -1,41 +1,27 @@
 use regex::Regex;
-use std::collections::HashMap;
 use std::fs;
 use std::path;
 
-pub struct Graph {
-    directed: bool,
-    pub nodes: HashMap<i32, Node>,
-}
-
-struct Node {
-    id: i32,
-    data: String,
-    children: Vec<i32>,
-}
+pub struct Graph {}
 
 impl Graph {
-    pub fn from_file(path: &path::Path) -> Graph {
-        let mut result = Graph {
-            directed: true,
-            nodes: HashMap::new(),
-        };
-
-        // borrow shenanigans. ask asa?
+    pub fn from_file(path: &path::Path) -> petgraph::graph::DiGraph<(i32, &str), ()> {
+        let mut result = petgraph::graph::DiGraph::<(i32, &str), ()>::new();
         let contents = fs::read_to_string(path).expect("Should have been able to read the file!");
 
         let mut lines = contents.lines(); // has to be a separate line because we're borrowing it mutably
 
         // read the first line to figure out what kind of graph
         let first = lines.next().expect("File seems empty...");
-
-        // read the rest of the lines until the penultimate one
+        // find the first word of the first line
         match first.split_whitespace().next().unwrap_or("") {
-            "graph" => result.directed = false,
-            "digraph" => result.directed = true,
+            // maybe this should be a regex?
+            "digraph" => (),
             _ => panic!("This DOT type isn't supported yet!"),
         }
+        // assume this is directed
 
+        // read the rest of the lines until the penultimate one
         // we expect all our node definitions to come first
         let node_regex = Regex::new(r#"^(?<id>\d+) -[->] \[label="(?<data>.*)"\];$"#).unwrap();
         for node_string in lines.by_ref().take_while(|&line| !line.trim().is_empty()) {
@@ -47,14 +33,8 @@ impl Graph {
             }; // maybe this is a better way of stopping the iterator? a take_if would work here
 
             let id = caps["id"].parse().unwrap();
-            result.nodes.insert(
-                id,
-                Node {
-                    id,
-                    data: caps["data"].to_owned(),
-                    children: Vec::new(),
-                },
-            );
+            let data = &caps["data"];
+            result.add_node((id, data));
         }
         // then a blank line
 
@@ -78,4 +58,5 @@ impl Graph {
 
         return result;
     }
+    pub fn to_file() {}
 }

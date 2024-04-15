@@ -1,5 +1,5 @@
 [package]
-name = "egg-test"
+name = "eq-sub"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 egg = "0.9.5"
 regex = "1.10.4"
+petgraph = "0.6.4"

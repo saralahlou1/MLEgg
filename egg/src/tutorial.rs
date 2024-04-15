@@ -36,9 +36,9 @@ fn main() {
     //
     //println!("original expr: {}", start);
     //println!("best expr: {}", best_expr);
-    
     let mut expr = RecExpr::default();
     let a = expr.add(MyLanguage::Symbol(Symbol::from("a")));
+
     let b = expr.add(MyLanguage::Symbol(Symbol::from("b")));
     let plus = expr.add(MyLanguage::Add([a, b]));
     let aaa = expr.add(MyLanguage::A([a, a, plus]));

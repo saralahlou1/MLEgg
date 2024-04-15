@@ -3,6 +3,7 @@
 * outputting structs again
 */
 // imports (figure out which ones are needed)
+use egg::*;
 
 // language definition
 define_language! {
@@ -14,8 +15,10 @@ define_language! {
 }
 
 // set of rules
-fn make_rules() -> Vec<Rewrite<SimpleLanguage, ()>> {
+pub fn make_rules() -> Vec<Rewrite<MLIR, ()>> {
     vec![
         // rewrite! rules here
+        rewrite!(),
+        rewrite!(),
     ]
 }
