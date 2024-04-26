@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 egg = "0.9.5"
 regex = "1.10.4"
-petgraph = "0.6.4"

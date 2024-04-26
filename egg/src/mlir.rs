@@ -7,10 +7,12 @@ use egg::*;
 
 // language definition
 define_language! {
-    enum MLIR {
+    pub enum MLIR {
         // language definition here
+        "linalg.matmul" = MatMul([Id; 2]),
+        Var(i32),
         Symbol(Symbol),
-        Other(Symbol, Vec<Id>),
+        //Other(Symbol, Vec<Id>),
     }
 }
 
@@ -18,7 +20,6 @@ define_language! {
 pub fn make_rules() -> Vec<Rewrite<MLIR, ()>> {
     vec![
         // rewrite! rules here
-        rewrite!(),
-        rewrite!(),
+        rewrite!("commute-matmul"; "(linalg.matmul ?a (linalg.matmul ?b ?c))" => "(linalg.matmul (linalg.matmul ?a ?b) ?c)"),
     ]
 }
