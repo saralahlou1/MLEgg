@@ -54,7 +54,7 @@ impl Graph {
 
         // read the rest of the lines until the penultimate one
         // we expect all our node definitions to come first
-        let node_regex = Regex::new(r#"^(?<id>\d+) -[->] \[label="(?<data>.*)"\];$"#).unwrap();
+        let node_regex = Regex::new(r#"^\t(?<id>\d+) \[label="(?<data>.*)"\];$"#).unwrap();
         for node_string in lines.by_ref().take_while(|&line| !line.trim().is_empty()) {
             // this lets us match for a line of pure split_whitespace
             // lines are of the form (ID -[->] [label="DATA"];). parse it into a node
@@ -79,7 +79,7 @@ impl Graph {
         // then a blank line
 
         // then all our edges
-        let edge_regex = Regex::new(r#"^(?<from>\d+) -[->] (?<to>\d+);$"#).unwrap();
+        let edge_regex = Regex::new(r#"^\t(?<from>\d+) -[->] (?<to>\d+);$"#).unwrap();
         for edge_string in lines {
             // edges look like (ID -[->] ID;)
             let Some(caps) = edge_regex.captures(edge_string) else {
