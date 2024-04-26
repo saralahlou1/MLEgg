@@ -14,7 +14,7 @@
         egg = pkgs.mkShell {
           name = "egg";
 
-          packages = with pkgs; [ cargo rustc rust-analyzer ];
+          packages = with pkgs; [ cargo rustc rust-analyzer rustfmt ];
 
           shellHook = ''
             exec ${pkgs.zsh}/bin/zsh
@@ -25,7 +25,7 @@
           name = "mlir";
 
           packages = with pkgs;
-            [ meson pkg-config cmake ninja libxml2 clang-tools ] ++ (with llvmPackages; [
+            [ meson pkg-config cmake ninja libxml2 clang-tools cmake-format ] ++ (with llvmPackages; [
               llvm
               (mlir.overrideAttrs (old: { outputs = [ "out" ]; })) # if we don't do this then cmake just doesn't find things
             ]);
