@@ -12,5 +12,5 @@ int main(int argc, char **argv) {
   mlir::registerEqualitySaturationPass();
 
   return mlir::asMainReturnCode(
-      mlir::MlirOptMain(argc, argv, "test", registry));
+      mlir::MlirOptMain(argc, argv, "Equality saturated MLIR", registry));
 }
