@@ -99,7 +99,9 @@ void EqualitySaturationPass::runOnOperation() {
 
         // pass it to rust program
         // TODO: FFI binding?
-        system("eqsat out.gv");
+        if (!system("eq-sub out.gv out2.gv")) {
+            // the Rust program failed!
+        }
 
         // get the result from the rust program
         // read the file
@@ -107,9 +109,29 @@ void EqualitySaturationPass::runOnOperation() {
 
         // reassociate the nodes in the result with the nodes in the block
         // these are numbered the same as the original graph; we can use them together to rebuild
+        // what do i do assuming i have a functional graph?
+        // this is janky, but we can't just use the standard rewrite application -- which assumes
 
-        // make the necessary changes
+        // insert at end of block. this isn't necessarily good -- it would be better to have an alg
+        // figure out where the best place to insert would be
+        mlir::OpBuilder builder(&(block.back()));
+        for (auto node : returned.get_nodes()) {
+            // c++ doesn't have good switches.
+            // if the data is an operation, match on the operation and create a new one to insert
+            if (node.second.data == "linalg.matmul") {
+                auto& result_val = id_to_value.find(node.first)->second;
+                auto& arg1_val = id_to_value.find(node.second.children[0])->second;
+                auto& arg2_val = id_to_value.find(node.second.children[1])->second;
+                builder.create<mlir::linalg::MatmulOp>(builder.getUnknownLoc(), std::vector<mlir::Value>{arg1_val, arg2_val}, std::vector<mlir::Value>{result_val});    
+            } else {
+                // data is just a link to a previous op. ignore
+            }
+        }
 
+        // delete the old operations (everything in the list)
+        for (auto op : filtered_ops) {
+            op.erase();
+        }
 }
 }
 

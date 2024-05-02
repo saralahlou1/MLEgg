@@ -44,5 +44,57 @@ void Graph::to_file(const std::string& filename) {
 }
 
 Graph Graph::from_file(const std::string& filename) {
-    return Graph();
+    std::ifstream file(filename);
+
+    // error check
+    if (!file.is_open()) {
+        // error!
+        return Graph();
+    }
+    
+    Graph output = Graph();
+
+    // same reading algo:
+    // read first line for directedness
+    std::string line;
+
+    if (!std::getline(file, line)) {
+        // error!
+    }
+    // assume directed
+    output.directed = true;
+    // while there isn't a newline: add nodes
+    std::regex node_regex("^\t(\\d+) \\[label=\"(.*)\"\\];$");
+    std::smatch base_match;
+    while (std::getline(file, line) && !line.empty()) {
+        // lines look like ([whitespace]<id> [label="<data>"];)
+        // c++ doesn't support capture groups :(
+        if (std::regex_match(line, base_match, node_regex)) {
+            if (base_match.size() > 2) {
+                int id = std::stoi(base_match[1].str());
+                std::string data = base_match[2].str();
+                std::cout << "id: " << id << ", data: " << data << "\n";
+                output.add_node(id, data);
+            }
+        }
+    }
+
+    // after the newline: add children
+    std::regex edge_regex("^\t(\\d+) -[->] (\\d+);$");
+    while (std::getline(file, line) && line != "}") {
+        // lines look like ([whitespace]<parent> -[->] <child>;)
+        if (std::regex_match(line, base_match, edge_regex)) {
+            if (base_match.size() > 2) {
+                int from = std::stoi(base_match[1].str());
+                int to = std::stoi(base_match[2].str());
+                std::cout << "from: " << from << ", to: " << to << "\n";
+                auto& from_node = output.nodes.find(from)->second; // not error checked!
+                from_node.children.push_back(to);
+            }
+        }
+    }
+
+    file.close();
+    
+    return output;
 }
