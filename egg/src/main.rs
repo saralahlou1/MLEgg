@@ -1,8 +1,6 @@
 use std::env;
 use std::path;
 
-use egg::EGraph;
-
 mod expr;
 mod graph;
 mod mlir;
@@ -30,18 +28,18 @@ fn main() {
     let extractor = egg::Extractor::new(&runner.egraph, egg::AstSize); // change optimization function as necessary
     let (_, best_expr) = extractor.find_best(runner.roots[0]);
 
-    //// convert the egg exprs into structs
-    //let result = expr::to_dag(&best_expr);
+    // convert the egg exprs into structs
+    let result = expr::to_dag(&best_expr);
 
-    //// conver the structs back into json, writing the file out
-    //result.to_file(path::Path::new(out_path));
+    // conver the structs back into json, writing the file out
+    result.to_file(path::Path::new(out_path));
 
-    // create a new EGraph, so we can print it as Dot.
-    // TODO: is this any good?
-    let mut output: EGraph<mlir::MLIR, ()> = EGraph::default();
-    output.add_expr(&best_expr);
-    output
-        .dot()
-        .to_dot(path::Path::new(out_path))
-        .expect("Couldn't write output file");
+    // // create a new EGraph, so we can print it as Dot.
+    // // TODO: is this any good?
+    // let mut output: EGraph<mlir::MLIR, ()> = EGraph::default();
+    // output.add_expr(&best_expr);
+    // output
+    //     .dot()
+    //     .to_dot(path::Path::new(out_path))
+    //     .expect("Couldn't write output file");
 }

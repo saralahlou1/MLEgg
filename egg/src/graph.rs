@@ -25,6 +25,9 @@ impl Node {
 }
 
 impl Graph {
+    pub fn add_node(&mut self, id: i32, data: String, children: Vec<i32>) {
+        self.nodes.insert(id, Node { data, children });
+    }
     pub fn new() -> Self {
         Graph {
             nodes: HashMap::new(),
