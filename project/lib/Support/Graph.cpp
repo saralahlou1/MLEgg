@@ -3,25 +3,14 @@
 #include <mlir/IR/Value.h>
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <regex>
 
-Graph::Node& Graph::add_node(std::string label, mlir::Value value) {
-    nodes.try_emplace(mlir::hash_value(value), Graph::Node{id++, label, std::vector<Graph::Node>()});
-    return nodes.find(mlir::hash_value(value))->second;
+Graph::Node& Graph::add_node(int id, std::string data) {
+    nodes.try_emplace(id, Graph::Node{data, std::vector<int>()});
+    return nodes.find(id)->second;
 }
 
-//template <typename T>
-/*
-void Graph::add_edge(std::string label, mlir::Value from, mlir::Value to) {
-    // insert our two keys
-    // eugh
-    value_to_id.try_emplace(mlir::hash_value(from), id++);
-    value_to_id.try_emplace(mlir::hash_value(from), id++);
-    // this isn't gross because we guarantee that it's already a value
-    struct Edge edge{.data = label, .from = value_to_id.find(mlir::hash_value(from))->second, .to = value_to_id.find(mlir::hash_value(to))->second};
-    edges.push_back(edge);
-}
-*/
-//template <typename T>
 void Graph::to_file(const std::string& filename) {
     std::string sep = directed ? " -> " : " -- ";
 
@@ -31,20 +20,19 @@ void Graph::to_file(const std::string& filename) {
     file.open(filename);
 
     // write the file header
-    file << '\n' << (directed ? "digraph" : "graph") << " generated_graph {\n";
+    file << (directed ? "digraph" : "graph") << " {\n";
 
     // write the nodes
-    for (auto const& [_, node] : nodes) {
-        file << '\t' << node.id << " [label=\"" << node.data << "\"];\n";
+    for (auto const& [id, node] : nodes) {
+        file << '\t' << id << " [label=\"" << node.data << "\"];\n";
     }
 
     file << '\n';
 
     // write the edges
-    for (auto const& [_, node] : nodes) {
-        std::cout << "next!" << node.children.size();
+    for (auto const& [id, node] : nodes) {
         for (auto const& other : node.children) {
-            file << '\t'<< node.id << sep << other.id << ";\n";
+            file << '\t'<< id << sep << other << ";\n";
         }
     }
 

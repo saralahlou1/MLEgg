@@ -1,8 +1,15 @@
 // this is a pass
+#include <algorithm>
+#include <iostream>
+#include <llvm/ADT/APInt.h>
 #include <mlir/Dialect/Linalg/IR/Linalg.h>
+#include <mlir/IR/Builders.h>
 #include <mlir/IR/OperationSupport.h>
+#include <llvm/ADT/Hashing.h>
 #include <mlir/IR/Value.h>
+#include <stdexcept>
 #include <vector>
+#include <map>
 
 #include "Transform/Linalg/EqualitySaturationPass.h"
 #include "Support/Graph.h"
@@ -39,6 +46,9 @@ void EqualitySaturationPass::runOnOperation() {
         // we don't have to worry about dimensions either (presumably they're right)
         // TODO: make this a template?
         Graph graph;
+        std::map<llvm::hash_code, int> value_to_id;
+        std::map<int, mlir::Value&> id_to_value;
+        int id_counter = 0;
         for (mlir::linalg::LinalgOp op : filtered_ops) {
             // we love dot.
             // i wrote a helper class for dot.
@@ -63,14 +73,26 @@ void EqualitySaturationPass::runOnOperation() {
             mlir::Value arg1 = internalOperation->getOperand(0);
             mlir::Value arg2 = internalOperation->getOperand(1);
 
+            // get the node ids these map to
+            int result_id = value_to_id.try_emplace(mlir::hash_value(result), id_counter++).first->second;
+            std::cout << id_counter << " " << result_id << '\n';
+            int arg1_id = value_to_id.try_emplace(mlir::hash_value(arg1), id_counter++).first->second;
+            std::cout << id_counter << " " << arg1_id << '\n';
+            int arg2_id = value_to_id.try_emplace(mlir::hash_value(arg2), id_counter++).first->second;
+            std::cout << id_counter << " " << arg2_id << '\n';
+
+            id_to_value.try_emplace(result_id, result);
+            id_to_value.try_emplace(arg1_id, arg1);
+            id_to_value.try_emplace(arg2_id, arg2);
+
             // // do we follow the values?
             // no, because they're unique (because of SSA)
             // how do i order these?
-            auto& node = graph.add_node(name.getIdentifier().str(), result);
-            Graph::Node& child_1 = graph.add_node("", arg1);
-            Graph::Node& child_2 = graph.add_node("", arg2);
-            node.children.push_back(child_1);
-            node.children.push_back(child_2);
+            Graph::Node& node = graph.add_node(result_id, name.getIdentifier().str());
+            graph.add_node(arg1_id, "");
+            graph.add_node(arg2_id, "");
+            node.children.push_back(arg1_id);
+            node.children.push_back(arg2_id);
         }
 
         graph.to_file("out.gv");
