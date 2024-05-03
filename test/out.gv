@@ -1,0 +1,12 @@
+digraph {
+	0 [label="linalg.matmul"];
+	1 [label=""];
+	2 [label=""];
+	3 [label="linalg.matmul"];
+	5 [label=""];
+
+	0 -> 1;
+	0 -> 2;
+	3 -> 0;
+	3 -> 5;
+}
