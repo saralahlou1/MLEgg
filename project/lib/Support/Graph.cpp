@@ -6,8 +6,13 @@
 #include <string>
 #include <regex>
 
-Graph::Node& Graph::add_node(int id, std::string data) {
-    nodes.try_emplace(id, Graph::Node{data, std::vector<int>()});
+Graph::Node& Graph::add_node_with_dims(int id, std::string data, int rows, int columns, int old_id, int old_op_id) {
+    nodes.try_emplace(id, Graph::Node{data, std::vector<int>(), rows, columns, old_id, old_op_id});
+    return nodes.find(id)->second;
+}
+
+Graph::Node& Graph::add_node(int id, std::string data, int old_id, int old_op_id) {
+    nodes.try_emplace(id, Graph::Node{data, std::vector<int>(), 0, 0, old_id, old_op_id});
     return nodes.find(id)->second;
 }
 
@@ -24,7 +29,7 @@ void Graph::to_file(const std::string& filename) {
 
     // write the nodes
     for (auto const& [id, node] : nodes) {
-        file << '\t' << id << " [label=\"" << node.data << "\"];\n";
+        file << '\t' << id << " [label=\"" << node.data << "\", rows=" << node.rows << ", columns=" << node.columns << "];\n";
     }
 
     file << '\n';
@@ -64,17 +69,31 @@ Graph Graph::from_file(const std::string& filename) {
     // assume directed
     output.directed = true;
     // while there isn't a newline: add nodes
-    std::regex node_regex("^\t(\\d+) \\[label=\"(.*)\"\\];$");
+    std::regex node_regex("^\t(\\d+) \\[label=\"(.*)\", rows=\"(.*)\", columns=\"(.*)\", oldID=\"(.*)\", oldOpID=\"(.*)\"\\];$");
     std::smatch base_match;
     while (std::getline(file, line) && !line.empty()) {
         // lines look like ([whitespace]<id> [label="<data>"];)
         // c++ doesn't support capture groups :(
         if (std::regex_match(line, base_match, node_regex)) {
-            if (base_match.size() > 2) {
+            if (base_match.size() > 5) {
                 int id = std::stoi(base_match[1].str());
                 std::string data = base_match[2].str();
-                std::cout << "id: " << id << ", data: " << data << "\n";
-                output.add_node(id, data);
+                std::string rows = base_match[3].str();
+                std::string columns = base_match[4].str();
+                int old_id = std::stoi(base_match[5].str());
+                int old_op_id = std::stoi(base_match[6].str());
+                std::cout << "id: " << id << ", data: " << data << ", rows: " << rows << ", columns: " << columns << ", old ID: "
+                << old_id << ", old op ID: " << old_op_id <<"\n";
+                if (rows == "NA" || columns == "NA")
+                {
+                    std::cout << "It's NA \n";
+                    output.add_node(id, data, old_id, old_op_id);
+                } else {
+                    int row = std::stoi(rows);
+                    int column = std::stoi(columns);
+                    std::cout << "It's a matrix with " << row << " rows and " << column << " columns \n";
+                    output.add_node_with_dims(id, data, row, column, old_id, old_op_id);
+                }
             }
         }
     }

@@ -3,11 +3,13 @@
 
 #include <mlir/IR/BuiltinOps.h>
 #include <mlir/Pass/Pass.h>
+#include "mlir/IR/Operation.h"
 
-// oh god do i want a namespace here
-namespace {
-// can specify what operations we operate on. we only operate on moduleops
-struct EqualitySaturationPass : public mlir::PassWrapper<EqualitySaturationPass, mlir::OperationPass<mlir::ModuleOp>> {
+
+
+namespace mlir {
+
+struct EqualitySaturationPass : public mlir::PassWrapper<EqualitySaturationPass, OperationPass<ModuleOp>> {
     // info about the pass
     // the flag used to run the pass
     mlir::StringRef getArgument() const final { return "equality-saturation"; }
@@ -16,10 +18,9 @@ struct EqualitySaturationPass : public mlir::PassWrapper<EqualitySaturationPass,
     // main method equiv
     void runOnOperation() override;
 };
-} //namespace
 
-namespace mlir {
 void registerEqualitySaturationPass();
 } // namespace mlir
+bool is_number(std::string);
 
 #endif

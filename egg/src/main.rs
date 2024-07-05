@@ -1,5 +1,7 @@
 use std::env;
 use std::path;
+use egg::*;
+use crate::mlir::MLIR;
 
 mod expr;
 mod graph;
@@ -17,29 +19,27 @@ fn main() {
 
     // parse the dot and convert it into a list of structs
     let graph = graph::Graph::from_file(path::Path::new(in_path));
+
     // conver the structs into egg exprs
-    let expr = expr::from_dag(&graph);
-    println!("{}", expr);
+    let expr_list= expr::from_dag(&graph);
 
-    // equality saturate the expressions using the defined rules
-    let rules = mlir::make_rules(); // for ownership reasons, i think
-    let runner = egg::Runner::default().with_expr(&expr).run(&rules);
+    let mut best_expr_list: Vec<RecExpr<MLIR>> = Vec::new();
 
-    let extractor = egg::Extractor::new(&runner.egraph, egg::AstSize); // change optimization function as necessary
-    let (_, best_expr) = extractor.find_best(runner.roots[0]);
+    // for each expression, extract best expression using our defined cost function
+    for exp in expr_list {
+        let (_, best) = mlir::optimise(&exp);
+        best_expr_list.push(best);
+    }
 
+    println!("the best expressions are: ");
+    for best in &best_expr_list {
+        println!("{}", best);
+    }
+    
     // convert the egg exprs into structs
-    let result = expr::to_dag(&best_expr);
+    let result = expr::to_dag(&best_expr_list);
 
     // conver the structs back into json, writing the file out
     result.to_file(path::Path::new(out_path));
-
-    // // create a new EGraph, so we can print it as Dot.
-    // // TODO: is this any good?
-    // let mut output: EGraph<mlir::MLIR, ()> = EGraph::default();
-    // output.add_expr(&best_expr);
-    // output
-    //     .dot()
-    //     .to_dot(path::Path::new(out_path))
-    //     .expect("Couldn't write output file");
+    
 }

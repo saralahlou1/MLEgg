@@ -13,6 +13,13 @@ pub struct Graph {
 pub struct Node {
     data: String,
     children: Vec<i32>,
+    // we will only pay attention to the dims of the matrix
+    // the ones resulting from an operation will be infered
+    // from e-class analysis
+    rows: i32,
+    columns: i32,
+    old_id: i32,
+    old_op_id: i32
 }
 
 impl Node {
@@ -22,11 +29,21 @@ impl Node {
     pub fn get_children(&self) -> &Vec<i32> {
         &self.children
     }
+    pub fn get_rows(&self) -> &i32 {
+        &self.rows
+    }
+    pub fn get_columns(&self) -> &i32 {
+        &self.columns
+    }
+    pub fn get_old_id(&self) -> &i32 {
+        &self.old_id
+    }
 }
 
 impl Graph {
-    pub fn add_node(&mut self, id: i32, data: String, children: Vec<i32>) {
-        self.nodes.insert(id, Node { data, children });
+    // note that for any other op that matrix, rows and columns will be 0
+    pub fn add_node_new(&mut self, id: i32, data: String, children: Vec<i32>, rows: i32, columns: i32, old_id: i32, old_op_id: i32) {
+        self.nodes.insert(id, Node { data, children, rows, columns, old_id, old_op_id});
     }
     pub fn new() -> Self {
         Graph {
@@ -57,7 +74,8 @@ impl Graph {
 
         // read the rest of the lines until the penultimate one
         // we expect all our node definitions to come first
-        let node_regex = Regex::new(r#"^\t(?<id>\d+) \[label="(?<data>.*)"\];$"#).unwrap();
+        let node_regex = 
+            Regex::new(r#"^\t(?<id>\d+) \[label="(?<data>.*)", rows=(?<rows>\d+), columns=(?<columns>\d+)\];$"#).unwrap();
         for node_string in lines.by_ref().take_while(|&line| !line.trim().is_empty()) {
             // this lets us match for a line of pure split_whitespace
             // lines are of the form (ID -[->] [label="DATA"];). parse it into a node
@@ -70,11 +88,17 @@ impl Graph {
 
             let id: i32 = caps["id"].parse().unwrap();
             let data = caps["data"].to_owned();
+            let rows = caps["rows"].parse().unwrap();
+            let columns = caps["columns"].parse().unwrap();
             result.nodes.insert(
                 id,
                 Node {
                     data,
                     children: Vec::new(),
+                    rows,
+                    columns,
+                    old_id : id,
+                    old_op_id : id
                 },
             );
             println!("node inserted!");
@@ -91,7 +115,9 @@ impl Graph {
 
             let from: i32 = caps["from"].parse().unwrap();
             let to: i32 = caps["to"].parse().unwrap();
-            let from_node = result.nodes.get_mut(&from).unwrap(); // TODO: error checking here -- what if the dot file is malformed?
+            // TODO: error checking here -- what if the dot file is malformed?
+            // this should not be an issue since we construct the dot ourselves
+            let from_node = result.nodes.get_mut(&from).unwrap();
             from_node.children.push(to);
         }
 
@@ -101,6 +127,8 @@ impl Graph {
 
         return result;
     }
+
+
     pub fn to_file<P>(&self, path: P)
     where
         P: AsRef<Path>,
@@ -116,7 +144,19 @@ impl Graph {
 
         // list of nodes
         for (id, node) in &self.nodes {
-            file.write_all(format!("\t{} [label=\"{}\"];\n", id, node.data).as_bytes())
+            let mut rows = node.rows.to_string();
+            let mut columns = node.columns.to_string();
+            // check if the value of dims is not useful
+            // note, only matrices will store accurate 
+            // and useful values of the dims at this point
+            if rows == "0" && columns == "0" {
+                // to make it clear we replace those non useful dims with NA
+                rows = "NA".to_string();
+                columns = "NA".to_string();
+            }
+
+            file.write_all(format!("\t{} [label=\"{}\", rows=\"{}\", columns=\"{}\", oldID=\"{}\", oldOpID=\"{}\"];\n", 
+                id, node.data, rows, columns, node.old_id, node.old_op_id).as_bytes())
                 .expect("couldn't write data");
         }
         file.write_all(b"\n").expect("couldn't write data!");
