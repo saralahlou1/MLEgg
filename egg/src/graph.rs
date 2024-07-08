@@ -18,7 +18,10 @@ pub struct Node {
     // from e-class analysis
     rows: i32,
     columns: i32,
+    // refers the the position of the mlir value in the map in EqualitySaturationPass.cpp
     old_id: i32,
+    // keeps a link representing the old operation in the map in EqualitySaturationPass.cpp
+    // this can change only when applying the rule T(T) = id
     old_op_id: i32
 }
 

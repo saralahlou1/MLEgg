@@ -48,6 +48,10 @@ pub fn make_rules() -> Vec<Rewrite<MLIR, Dimensions>> {
         if is_vector_transposed("?a") if is_vector("?b")),
 
         // not doing the other implication since it won't be useful
+        // We express the different combinations possible
+        // it will be a new one for each new operation
+        // notice that old_op_id changes for the inner most section
+        // it now stores the old_op_id of the outer most transpose
         rewrite!("double transpose"; "(linalg.transpose(linalg.transpose (matrix ?a ?b ?c ?f) ?d ?g) ?e ?h)" => "(matrix ?a ?b ?c ?h)"),
         rewrite!("double transpose1"; "(linalg.transpose(linalg.transpose (linalg.matmul ?a ?b ?c ?f) ?d ?g) ?e ?h)" => "(linalg.matmul ?a ?b ?c ?h)"),
         rewrite!("double transpose2"; "(linalg.transpose(linalg.transpose (linalg.dot ?a ?b ?c ?f) ?d ?g) ?e ?h)" => "(linalg.dot ?a ?b ?c ?h)"),

@@ -67,6 +67,7 @@ pub fn from_dag(graph: &Graph) -> Vec<RecExpr<MLIR>> {
             enodes[&node.get_children()[0]],
             enodes[&node.get_children()[1]],
             old_id,
+            // at first old id = old op id
             old_id
         ]))
         },
