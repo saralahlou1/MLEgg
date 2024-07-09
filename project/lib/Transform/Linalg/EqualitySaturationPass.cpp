@@ -209,7 +209,8 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 llvm::errs() << "imputed rows: " << rows << " and columns: " << columns << "\n";
 
             }
-            graph.add_node_with_dims(arg1_id, "", rows, columns, 0, 0);
+
+            graph.add_node_with_dims(arg1_id, std::to_string(rows) + "x" + std::to_string(columns) + " matrix", rows, columns, 0, 0);
             node.children.push_back(arg1_id);
 
 
@@ -246,7 +247,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                     llvm::errs() << "imputed rows: " << rows << " and columns: " << columns << "\n";
 
                 }
-                graph.add_node_with_dims(arg2_id, "", rows, columns, 0, 0);
+                graph.add_node_with_dims(arg2_id, std::to_string(rows) + "x" + std::to_string(columns) + " matrix", rows, columns, 0, 0);
 
                 
                 node.children.push_back(arg2_id);
@@ -297,10 +298,99 @@ void mlir::EqualitySaturationPass::runOnOperation() {
     for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {
         // c++ doesn't have good switches.
             // if the data is an operation, match on the operation and create a new one to insert
+            int old_id = node->second.old_id;
+            int old_op_id = node->second.old_op_id;
+            if (old_id != old_op_id)
+            {
+                
+                // maybe change and put this as the first case
+                // this could refer to an op that was the result of 
+                // transpose (traspose (X)) = X
+                // before an optimisations, we have oldId = oldOpId
+                // after the optimisations, when we replace op A with B,
+                // B retains its oldId (its mlir value stays the same)
+                // but its old op id become the old op id of A 
+                // (it's like we refer to the operation to replace)
+                // following this train of thoughts, transpose (traspose (X)) = X
+                // X retains its old Id, but its old op id now refers to the one of the outer transpose
+                // thus, we check the if oldId != oldOpId to see if we need any rewrites
+                // if that's the case, we replace the oldOpId uses with oldId uses and erase that op
+                
+
+                std::cout << "in loop op where old op id and old id are different old id: " << old_id << " old op id: "<< old_op_id << " and data: " << node->second.data << " \n";
+                
+                // we search for the operations that old id refers to
+                // we need to look into all the operations in the block
+                // not just the filterd ones
+                bool found = false;
+                mlir::Operation* matrixOp;
+                for (mlir::Operation &op : block.getOperations()) {
+                    mlir::Value result;
+                    if (op.getNumResults() != 0){
+                        result = op.getResult(0);
+                            for (const auto& pair : id_to_value) {
+                            if (pair.second == result) {
+                                int id = pair.first;
+                                if (id == old_id){
+                                    std::cout << "Found the tensor! \n";
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (found){
+                            matrixOp = &op;
+                            break;
+                        }
+                    } else {
+                        continue;
+                    }
+                    
+                }
+
+                // we also store the values corresponding to both old id and old op id
+                auto& result_val = id_to_value.find(old_id)->second;
+                auto& old_op_val = id_to_value.find(old_op_id)->second;
+
+                // we now search for the operation to replace (corresponds to old op id)
+                // we only need to search in the filtered operations this time
+                found = false;
+                mlir::linalg::LinalgOp opToRemove;
+                for (mlir::linalg::LinalgOp op : filtered_ops) {
+                    mlir::Operation *internalOperation = op.getOperation();
+                    mlir::Value result;
+                    if (internalOperation->getNumResults() != 0){
+                        result = internalOperation->getResult(0);
+                            for (const auto& pair : id_to_value) {
+                            if (pair.second == result) {
+                                int id = pair.first;
+                                if (id == old_op_id){
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (found){
+                            std::cout << "Replacing the op! \n";
+                            // we replace the uses of the old op with the new one and then erase it
+                            op->replaceAllUsesWith(matrixOp);
+                            op->replaceUsesOfWith(old_op_val, result_val);
+                            op.erase();
+                            opToRemove = op;
+                            break;
+                        }
+                    } else {
+                        continue;
+                    }
+                    
+                
+
+                }
+            }
             
-            if (node->second.data == "linalg.matmul") {
+            else if (node->second.data == "linalg.matmul") {
                 std::cout << "writing matmul op... \n";
-                int old_id = node->second.old_id;
+                // int old_id = node->second.old_id;
                 int old_child1_id = returned.get_nodes().find(node->second.children[0])->second.old_id;
                 int old_child2_id = returned.get_nodes().find(node->second.children[1])->second.old_id;
                 
@@ -448,9 +538,9 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
                 id_to_value[old_id] = new_result_val;
 
-            } if (node->second.data == "linalg.dot") {
+            } else if (node->second.data == "linalg.dot") {
                 std::cout << "in loop dot op: \n";
-                int old_id = node->second.old_id;
+                // int old_id = node->second.old_id;
                 int old_child1_id = returned.get_nodes().find(node->second.children[0])->second.old_id;
                 int old_child2_id = returned.get_nodes().find(node->second.children[1])->second.old_id;
                 
@@ -589,15 +679,8 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 id_to_value[old_id] = new_result_val;
 
 
-            } if (node->second.data == "linalg.add") {
-                // int old_id0 = node->second.old_id;
-                // int old_op_id0 = node->second.old_op_id;
-                // if (old_id0 != old_op_id0){
-                //     continue;
-                // }
-                // TODO
+            } else if (node->second.data == "linalg.add") {
                 std::cout << "writing add op... \n";
-                int old_id = node->second.old_id;
                 int old_child1_id = returned.get_nodes().find(node->second.children[0])->second.old_id;
                 int old_child2_id = returned.get_nodes().find(node->second.children[1])->second.old_id;
                 
@@ -679,7 +762,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 id_to_value[old_id] = new_result_val;
             }
             
-            // try to add the add operation no need to check the operands dims like in matmul and dot for now
+            // no need to check the operands dims like in matmul and dot for now for add op
             // if need ever arises, follow template used in matmul and dot
 
             // another approch would be to encode these information in the egg mlir language
@@ -688,96 +771,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
             // Note that it wouldn't be general and wouldn't spare us the need to do this for new ops
             // this is because we would need to encode it in our egg mlir language too for every new op
             // I find it easier the do it here this way
-            else {
-                // maybe change and put this as the first case
-                // this could refer to an op that was the result of 
-                // transpose (traspose (X)) = X
-                // before an optimisations, we have oldId = oldOpId
-                // after the optimisations, when we replace op A with B,
-                // B retains its oldId (its mlir value stays the same)
-                // but its old op id become the old op id of A 
-                // (it's like we refer to the operation to replace)
-                // following this train of thoughts, transpose (traspose (X)) = X
-                // X retains its old Id, but its old op id now refers to the one of the outer transpose
-                // thus, we check the if oldId != oldOpId to see if we need any rewrites
-                // if that's the case, we replace the oldOpId uses with oldId uses and erase that op
-                
-
-                int old_id = node->second.old_id;
-                int old_op_id = node->second.old_op_id;
-                if (old_id == old_op_id){
-                    // in this case we ignore
-                    continue;
-                }
-                std::cout << "in loop op where old op id and old id are different old id: " << old_id << " old op id: "<< old_op_id << " and data: " << node->second.data << " \n";
-                
-                // we search for the operations that old id refers to
-                // we need to look into all the operations in the block
-                // not just the filterd ones
-                bool found = false;
-                mlir::Operation* matrixOp;
-                for (mlir::Operation &op : block.getOperations()) {
-                    mlir::Value result;
-                    if (op.getNumResults() != 0){
-                        result = op.getResult(0);
-                            for (const auto& pair : id_to_value) {
-                            if (pair.second == result) {
-                                int id = pair.first;
-                                if (id == old_id){
-                                    std::cout << "Found the tensor! \n";
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (found){
-                            matrixOp = &op;
-                            break;
-                        }
-                    } else {
-                        continue;
-                    }
-                    
-                }
-
-                // we also store the values corresponding to both old id and old op id
-                auto& result_val = id_to_value.find(old_id)->second;
-                auto& old_op_val = id_to_value.find(old_op_id)->second;
-
-                // we now search for the operation to replace (corresponds to old op id)
-                // we only need to search in the filtered operations this time
-                found = false;
-                mlir::linalg::LinalgOp opToRemove;
-                for (mlir::linalg::LinalgOp op : filtered_ops) {
-                    mlir::Operation *internalOperation = op.getOperation();
-                    mlir::Value result;
-                    if (internalOperation->getNumResults() != 0){
-                        result = internalOperation->getResult(0);
-                            for (const auto& pair : id_to_value) {
-                            if (pair.second == result) {
-                                int id = pair.first;
-                                if (id == old_op_id){
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (found){
-                            std::cout << "Replacing the op! \n";
-                            // we replace the uses of the old op with the new one and then erase it
-                            op->replaceAllUsesWith(matrixOp);
-                            op->replaceUsesOfWith(old_op_val, result_val);
-                            op.erase();
-                            opToRemove = op;
-                            break;
-                        }
-                    } else {
-                        continue;
-                    }
-                    
-                }
-
-            }
+            
 
             // maybe a good thing to do if possible is loop through the old filtered ops and 
             // check the number of uses they have. If there are none then erase the op

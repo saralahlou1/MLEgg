@@ -100,38 +100,38 @@ pub struct Dimensions;
 impl Analysis<MLIR> for Dimensions{
     // I chose the Data type to be an array of size 2.
     // First entery for nb of rows, second for nb columns
-    type Data = [i32; 2];
+    type Data = [i32; 3];
 
     fn make(egraph: &EGraph<MLIR, Self>, enode: &MLIR) -> Self::Data {
         // getter function
         let get = |id: &Id| &egraph[*id].data;
         match enode {
             // A x B = C, A is nxm and B is mxk => C is nxk
-            MLIR::MatMul([a, b, _c, _d]) => [get(a)[0], get(b)[1]],
+            MLIR::MatMul([a, b, c, _d]) => [get(a)[0], get(b)[1], get(c)[0]],
 
             // dot gives back a scalar
-            MLIR::Dot([_a, _b, _c, _d]) => [1,1],
+            MLIR::Dot([_a, _b, c, _d]) => [1,1, get(c)[0]],
 
             // For transpose, we simply invert the dims of what's inside
-            MLIR::Transpose([a, _b, _c]) => [get(a)[1], get(a)[0]],
+            MLIR::Transpose([a, _b, c]) => [get(a)[1], get(a)[0], get(c)[0]],
 
             // The dims don't change after addition
-            MLIR::Add([a, _b, _c, _d]) => [get(a)[0], get(a)[1]],
+            MLIR::Add([a, _b, c, _d]) => [get(a)[0], get(a)[1], get(c)[0]],
 
             // for now extract slice is only used to reduce the dimension 
             // by 1 to be able to do the dot product. So we keep the dims 
             // as they are in the analysis to reason more easily
-            MLIR::ExtractSlice([a, _b, _c]) => [get(a)[0], get(a)[1]],
+            MLIR::ExtractSlice([a, b, _c]) => [get(a)[0], get(a)[1], get(b)[0]],
 
             // matrix will always contain ids that correspond to Num.
             // We just take the value of the num
-            MLIR::Matrix([a,b, _c, _d]) =>  [get(a)[0], get(b)[0]],
+            MLIR::Matrix([a,b, c, _d]) =>  [get(a)[0], get(b)[0], get(c)[0]],
 
             // numbers will always represent dimensions in our language
             // we fix a convension of storing the value of Num in the
             // first sloth of the array. 
             // Note: for Num, we are only interested in the actual value stored
-            MLIR::Num(a) => [*a,0],
+            MLIR::Num(a) => [*a,0,0],
         }
     }
 
@@ -152,6 +152,7 @@ impl<'a> CostFunction<MLIR> for DimCostFn<'a> {
         C: FnMut(Id) -> Self::Cost
     {
         // here we define the cost of each operation
+        // we add the number of loops to the cost as well
         let op_cost = match enode {
             // nxm times lxk has around nxkxl operations
             MLIR::MatMul([a, b, _c, _d]) => {

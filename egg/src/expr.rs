@@ -1,5 +1,5 @@
 // in mlir-project-test
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, BTreeSet, VecDeque};
 
 use crate::graph::Graph;
 use crate::mlir::MLIR;
@@ -14,7 +14,8 @@ pub fn from_dag(graph: &Graph) -> Vec<RecExpr<MLIR>> {
 
     // find roots of input graph
     // a root is a node which is the child of no other
-    let mut children: HashSet<i32> = HashSet::new();
+    // we use an ordered set to avoid any randomness in our results
+    let mut children: BTreeSet<i32> = BTreeSet::new();
     for (_, node) in nodes {
         for child in node.get_children() {
             children.insert(child.to_owned()); // TODO: is this right? ask a rustacean
@@ -22,7 +23,7 @@ pub fn from_dag(graph: &Graph) -> Vec<RecExpr<MLIR>> {
     }
     println!("roots found");
     // difference between all nodes and children is parents
-    let all_nodes: HashSet<i32> = nodes.keys().cloned().collect();
+    let all_nodes: BTreeSet<i32> = nodes.keys().cloned().collect();
     let parents = &all_nodes - &children;
 
     println!("parents: {:?}", parents);
@@ -44,6 +45,8 @@ pub fn from_dag(graph: &Graph) -> Vec<RecExpr<MLIR>> {
 
     println!("Nodes added: {:?}", nodes_added);
 
+    // we don't need an ordered hashmap to keep the program deterministic
+    // since we only use this map in this section to access relevent information
     let mut enodes: HashMap<i32, Id> = HashMap::new();
 
     let mut result: RecExpr<MLIR> = RecExpr::default();
@@ -188,7 +191,7 @@ pub fn to_dag(expr_list: &Vec<RecExpr<MLIR>>) -> Graph {
                     columns = arg_list[1].parse().unwrap();
 
                     // we store into the data field the id used in the original dot file
-                    data = arg_list[2].to_string();
+                    data = (rows.to_string() + "x" + &columns.to_string() + " matrix").to_string();
 
                     old_id = arg_list[2].parse().unwrap();
                     old_op_id = arg_list[3].parse().unwrap();
@@ -253,26 +256,36 @@ pub fn to_dag(expr_list: &Vec<RecExpr<MLIR>>) -> Graph {
                     arg_list.push(rest);
 
 
-                    for argument in arg_list {
+                    for argument in &arg_list {
                         println!(" The arg is: {}", argument);
                         // if it starts with a parenthesis, it's got children
                         // for our current language, this should always be the case
                         // since we handle matrix case alone which by construction
                         // will be the only node to contain terminators
                         if argument.chars().nth(0) == Some('(') {
-                            to_consider.push_back((id, argument.to_owned()));
-                            children.push(id);
+                            
+                            if let Some((existing_id, _)) = to_consider.iter().find(|(_, s)| s.to_string() == argument.to_string()) {
+                                children.push(*existing_id);
+                            } else {
+                                println!("No element with the same string value in the VecDeque.");
+                                to_consider.push_back((id, argument.to_string()));
+                                children.push(id);
+                            }
+
+
+                            // to_consider.push_back((id, argument.to_string()));
+                            // children.push(id);
                             id += 1;
                         } 
                         
                         else {
                             // else it's the last arguments which is the old id or old_op_id
                             // they are different only for matrices
-                            old_id = argument.parse().unwrap();
-                            old_op_id = argument.parse().unwrap();
-                            // result.add_node_new(id, argument.to_owned(), vec![], 0, 0, 0);
                         }
                     }
+                    // we initialize them here
+                    old_id = arg_list[arg_list.len() - 2].parse().unwrap();
+                    old_op_id = arg_list[arg_list.len() - 1].parse().unwrap();
 
                 }
                 // we add the node with it's corresponding children and dims

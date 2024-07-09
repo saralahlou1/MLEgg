@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 
 use std::io::Write;
@@ -7,9 +7,12 @@ use std::path::Path;
 
 #[derive(Default)]
 pub struct Graph {
-    nodes: HashMap<i32, Node>,
+    // better to use a BTreeMap which keeps the order of the keys unlike hashmaps
+    // this way we can make our program more deterministic
+    nodes: BTreeMap<i32, Node>,
 }
 
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct Node {
     data: String,
     children: Vec<i32>,
@@ -41,6 +44,9 @@ impl Node {
     pub fn get_old_id(&self) -> &i32 {
         &self.old_id
     }
+    pub fn get_old_op_id(&self) -> &i32 {
+        &self.old_op_id
+    }
 }
 
 impl Graph {
@@ -50,10 +56,10 @@ impl Graph {
     }
     pub fn new() -> Self {
         Graph {
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
         }
     }
-    pub fn get_nodes(&self) -> &HashMap<i32, Node> {
+    pub fn get_nodes(&self) -> &BTreeMap<i32, Node> {
         &self.nodes
     }
     pub fn from_file<P>(path: P) -> Self
@@ -136,6 +142,19 @@ impl Graph {
     where
         P: AsRef<Path>,
     {
+
+        let mut reverse_map: BTreeMap<Node, i32> = BTreeMap::new();
+        for (id, node) in &self.nodes {
+            reverse_map.insert(node.clone(), *id);
+        }
+
+        let mut cleaned_map: BTreeMap<i32, Node> = BTreeMap::new();
+        for (node, id) in &reverse_map {
+            cleaned_map.insert(*id, node.clone());
+            println!("id: {}, data: {}, rows: {}, columns: {}, oldID: {}, oldOpId:{}, children: {:?}", id, node.get_data(), node.get_rows(), node.get_columns(), node.get_old_id(), node.get_old_op_id(), node.get_children())
+        }
+
+
         // read a file and parse it to dot
         // open the file
         let mut file = match File::create(path) {
@@ -158,6 +177,7 @@ impl Graph {
                 columns = "NA".to_string();
             }
 
+            println!("id: {} with rows: {} and columns: {}", id, rows, columns);
             file.write_all(format!("\t{} [label=\"{}\", rows=\"{}\", columns=\"{}\", oldID=\"{}\", oldOpID=\"{}\"];\n", 
                 id, node.data, rows, columns, node.old_id, node.old_op_id).as_bytes())
                 .expect("couldn't write data");
