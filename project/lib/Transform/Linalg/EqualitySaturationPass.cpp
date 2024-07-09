@@ -300,10 +300,9 @@ void mlir::EqualitySaturationPass::runOnOperation() {
             // if the data is an operation, match on the operation and create a new one to insert
             int old_id = node->second.old_id;
             int old_op_id = node->second.old_op_id;
-            if (old_id != old_op_id)
-            {
-                
-                // maybe change and put this as the first case
+            
+            // this should be our first case
+            if (old_id != old_op_id){
                 // this could refer to an op that was the result of 
                 // transpose (traspose (X)) = X
                 // before an optimisations, we have oldId = oldOpId

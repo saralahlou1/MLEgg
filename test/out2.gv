@@ -1,10 +1,26 @@
 digraph {
-	0 [label="linalg.add", rows="NA", columns="NA", oldID="7", oldOpID="7"];
-	1 [label="linalg.add", rows="NA", columns="NA", oldID="0", oldOpID="5"];
-	3 [label="2x3 matrix", rows="2", columns="3", oldID="1", oldOpID="1"];
+	0 [label="linalg.matmul", rows="NA", columns="NA", oldID="19", oldOpID="19"];
+	1 [label="1x2 matrix", rows="1", columns="2", oldID="16", oldOpID="-1"];
+	2 [label="2x1 matrix", rows="2", columns="1", oldID="21", oldOpID="21"];
+	3 [label="linalg.matmul", rows="NA", columns="NA", oldID="12", oldOpID="12"];
+	4 [label="3x2 matrix", rows="3", columns="2", oldID="7", oldOpID="7"];
+	5 [label="linalg.add", rows="NA", columns="NA", oldID="6", oldOpID="6"];
+	6 [label="2x4 matrix", rows="2", columns="4", oldID="8", oldOpID="8"];
+	7 [label="2x4 matrix", rows="2", columns="4", oldID="11", oldOpID="11"];
+	8 [label="linalg.matmul", rows="NA", columns="NA", oldID="3", oldOpID="3"];
+	9 [label="3x2 matrix", rows="3", columns="2", oldID="1", oldOpID="1"];
+	10 [label="linalg.matmul", rows="NA", columns="NA", oldID="0", oldOpID="0"];
+	11 [label="2x4 matrix", rows="2", columns="4", oldID="2", oldOpID="2"];
+	12 [label="4x3 matrix", rows="4", columns="3", oldID="5", oldOpID="5"];
 
 	0 -> 1;
-	0 -> 1;
-	1 -> 3;
-	1 -> 3;
+	0 -> 2;
+	3 -> 4;
+	3 -> 5;
+	5 -> 6;
+	5 -> 7;
+	8 -> 9;
+	8 -> 10;
+	10 -> 11;
+	10 -> 12;
 }

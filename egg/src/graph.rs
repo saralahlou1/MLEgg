@@ -12,7 +12,6 @@ pub struct Graph {
     nodes: BTreeMap<i32, Node>,
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct Node {
     data: String,
     children: Vec<i32>,
@@ -43,9 +42,6 @@ impl Node {
     }
     pub fn get_old_id(&self) -> &i32 {
         &self.old_id
-    }
-    pub fn get_old_op_id(&self) -> &i32 {
-        &self.old_op_id
     }
 }
 
@@ -142,18 +138,6 @@ impl Graph {
     where
         P: AsRef<Path>,
     {
-
-        let mut reverse_map: BTreeMap<Node, i32> = BTreeMap::new();
-        for (id, node) in &self.nodes {
-            reverse_map.insert(node.clone(), *id);
-        }
-
-        let mut cleaned_map: BTreeMap<i32, Node> = BTreeMap::new();
-        for (node, id) in &reverse_map {
-            cleaned_map.insert(*id, node.clone());
-            println!("id: {}, data: {}, rows: {}, columns: {}, oldID: {}, oldOpId:{}, children: {:?}", id, node.get_data(), node.get_rows(), node.get_columns(), node.get_old_id(), node.get_old_op_id(), node.get_children())
-        }
-
 
         // read a file and parse it to dot
         // open the file

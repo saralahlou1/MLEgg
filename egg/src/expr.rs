@@ -263,26 +263,27 @@ pub fn to_dag(expr_list: &Vec<RecExpr<MLIR>>) -> Graph {
                         // since we handle matrix case alone which by construction
                         // will be the only node to contain terminators
                         if argument.chars().nth(0) == Some('(') {
-                            
+                            // in order to avoid duplicates in our graph,
+                            // we first check if the argument was already pushed before
+                            // if so, we get the corresponding id and push it to the children list
                             if let Some((existing_id, _)) = to_consider.iter().find(|(_, s)| s.to_string() == argument.to_string()) {
                                 children.push(*existing_id);
                             } else {
+                                // else, we add the argument to the list to be considered 
+                                // with the corresponding id
                                 println!("No element with the same string value in the VecDeque.");
                                 to_consider.push_back((id, argument.to_string()));
                                 children.push(id);
+                                id += 1;
                             }
-
-
-                            // to_consider.push_back((id, argument.to_string()));
-                            // children.push(id);
-                            id += 1;
                         } 
                         
                         else {
                             // else it's the last arguments which is the old id or old_op_id
-                            // they are different only for matrices
                         }
                     }
+                    // since old_id and old_op_id are not necessarily the same
+                    // and since they always occupy the last 2 slots in the arg list
                     // we initialize them here
                     old_id = arg_list[arg_list.len() - 2].parse().unwrap();
                     old_op_id = arg_list[arg_list.len() - 1].parse().unwrap();
@@ -294,9 +295,7 @@ pub fn to_dag(expr_list: &Vec<RecExpr<MLIR>>) -> Graph {
                 result.add_node_new(next.0, data, children, rows, columns, old_id, old_op_id);
             } 
             else {
-                // change since u added matrices
                 println!("We shouldn't get here normally.");
-                // result.add_node(next.0, next.1, children)
             }
         }
     }
