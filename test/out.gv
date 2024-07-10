@@ -1,33 +1,14 @@
 digraph {
-	0 [label="linalg.matmul", rows=3, columns=4];
-	1 [label="3x2 matrix", rows=3, columns=2];
-	2 [label="2x4 matrix", rows=2, columns=4];
-	3 [label="linalg.matmul", rows=3, columns=3];
-	5 [label="4x3 matrix", rows=4, columns=3];
-	6 [label="linalg.matmul", rows=3, columns=4];
-	7 [label="3x2 matrix", rows=3, columns=2];
-	8 [label="2x4 matrix", rows=2, columns=4];
-	9 [label="linalg.matmul", rows=3, columns=4];
-	11 [label="2x4 matrix", rows=2, columns=4];
-	12 [label="linalg.add", rows=3, columns=4];
-	15 [label="linalg.transpose", rows=2, columns=1];
-	16 [label="1x2 matrix", rows=1, columns=2];
-	17 [label="tensor.extract_slice", rows=2, columns=1];
-	19 [label="linalg.dot", rows=1, columns=1];
-	21 [label="2x1 matrix", rows=2, columns=1];
+	0 [label="linalg.broadcast", rows=3, columns=2];
+	1 [label="3x1 matrix", rows=3, columns=1];
+	2 [label="linalg.matmul", rows=3, columns=4];
+	4 [label="2x4 matrix", rows=2, columns=4];
+	5 [label="linalg.matmul", rows=3, columns=3];
+	7 [label="4x3 matrix", rows=4, columns=3];
 
 	0 -> 1;
-	0 -> 2;
-	3 -> 0;
-	3 -> 5;
-	6 -> 7;
-	6 -> 8;
-	9 -> 7;
-	9 -> 11;
-	12 -> 6;
-	12 -> 9;
-	15 -> 16;
-	17 -> 15;
-	19 -> 17;
-	19 -> 21;
+	2 -> 0;
+	2 -> 4;
+	5 -> 2;
+	5 -> 7;
 }

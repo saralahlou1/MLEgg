@@ -62,7 +62,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 }
 
             }
-            else if (llvm::isa<mlir::tensor::ExtractSliceOp>(op)){
+            else if (llvm::isa<mlir::tensor::ExtractSliceOp>(op) || llvm::isa<mlir::linalg::BroadcastOp>(op)){
                 all_ops.push_back(&op);
                 // this is just to print the dims of the operands
                 for (Value operand : op.getOperands()) {
