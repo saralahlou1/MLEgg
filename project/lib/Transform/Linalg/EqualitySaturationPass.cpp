@@ -255,6 +255,17 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
         }
 
+        int largest_id = 0;
+        for (auto node : graph.get_nodes()) {
+            if (node.first > largest_id){
+                largest_id = node.first;
+            }
+            
+        }
+
+        std::cout << "largest id in old graph: " << largest_id << " \n";
+
+
         graph.to_file("out.gv");
 
         // pass it to rust program
@@ -350,44 +361,56 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 // we also store the values corresponding to both old id and old op id
                 auto& result_val = id_to_value.find(old_id)->second;
                 auto& old_op_val = id_to_value.find(old_op_id)->second;
-
-                // we now search for the operation to replace (corresponds to old op id)
-                // we only need to search in the filtered operations this time
-                found = false;
-                mlir::linalg::LinalgOp opToRemove;
-                for (mlir::linalg::LinalgOp op : filtered_ops) {
-                    mlir::Operation *internalOperation = op.getOperation();
-                    mlir::Value result;
-                    if (internalOperation->getNumResults() != 0){
-                        result = internalOperation->getResult(0);
-                            for (const auto& pair : id_to_value) {
-                            if (pair.second == result) {
-                                int id = pair.first;
-                                if (id == old_op_id){
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (found){
-                            std::cout << "Replacing the op! \n";
-                            // we replace the uses of the old op with the new one and then erase it
-                            op->replaceAllUsesWith(matrixOp);
-                            op->replaceUsesOfWith(old_op_val, result_val);
-                            op.erase();
-                            opToRemove = op;
-                            break;
-                        }
-                    } else {
-                        continue;
-                    }
-                    
                 
 
+                if (old_id <= largest_id) {
+                    // we now search for the operation to replace (corresponds to old op id)
+                    // we only need to search in the filtered operations this time
+                    found = false;
+                    mlir::linalg::LinalgOp opToRemove;
+                    for (mlir::linalg::LinalgOp op : filtered_ops) {
+                        mlir::Operation *internalOperation = op.getOperation();
+                        mlir::Value result;
+                        if (internalOperation->getNumResults() != 0){
+                            result = internalOperation->getResult(0);
+                                for (const auto& pair : id_to_value) {
+                                if (pair.second == result) {
+                                    int id = pair.first;
+                                    if (id == old_op_id){
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found){
+                                std::cout << "Replacing the op! \n";
+                                // we replace the uses of the old op with the new one and then erase it
+                                op->replaceAllUsesWith(matrixOp);
+                                op->replaceUsesOfWith(old_op_val, result_val);
+                                op.erase();
+                                opToRemove = op;
+                                break;
+                            }
+                        } else {
+                            continue;
+                        }
+                    }
                 }
+
+                // sometimes even if old id != old op id, there can be no operation to replace
+                // for exemple, if we introduce the transpose ourselves while doing the opts 
+                // then there won't be anything we need to replace here:
+                // dot((transpose A) B) => matmul((transpose (transpose A)) B) => matmul A B
+                // here even if A has old id != old op id, we don't need to perform any replacements
+                // since we were the ones to introduce the op
+                if (found){
+                    continue;
+                }
+                // if not found, we go to the other cases
+                std::cout << "Checking other cases... \n";
             }
             
-            else if (node->second.data == "linalg.matmul") {
+            if (node->second.data == "linalg.matmul") {
                 std::cout << "writing matmul op... \n";
                 // int old_id = node->second.old_id;
                 int old_child1_id = returned.get_nodes().find(node->second.children[0])->second.old_id;
@@ -465,12 +488,16 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 
                 mlir::Operation *newOp;
                 newOp = builder.create<mlir::linalg::MatmulOp>(builder.getUnknownLoc(), std::vector<mlir::Value>{arg1_val, arg2_val}, std::vector<mlir::Value>{resultTensor});    
-
+ 
+                mlir::Value new_result_val = newOp->getResult(0);
+                if (old_id > largest_id) {
+                    id_to_value[old_id] = new_result_val;
+                    continue;
+                }
                 
                 // here check the original dims of the old result. if it was f32, then transfor the current result
                 // which is 1x1xf32 to f32
                 auto& old_result_val = id_to_value.find(old_id)->second;
-                mlir::Value new_result_val = newOp->getResult(0);
                 auto newResultShape = new_result_val.getType().cast<ShapedType>().getShape();
                 
                 // we also do the check that the dims of the new result are 1x1xf32 to avoid any error
@@ -610,12 +637,18 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 mlir::Operation *newOp;
                 newOp = builder.create<mlir::linalg::DotOp>(builder.getUnknownLoc(), std::vector<mlir::Value>{arg1_val, arg2_val}, std::vector<mlir::Value>{resultTensor});    
 
+
+                mlir::Value new_result_val = newOp->getResult(0);
+                if (old_id > largest_id) {
+                    id_to_value[old_id] = new_result_val;
+                    continue;
+                }
+
                 // now check the original dims of the old result. if it was 1x1xf32, 
                 // then transfor the current result which is f32 to 1x1xf32
                 // else, we leave it since it's of the correct type
 
                 auto& old_result_val = id_to_value.find(old_id)->second;
-                mlir::Value new_result_val = newOp->getResult(0);
                 auto newResultShape = new_result_val.getType().cast<ShapedType>().getShape();
                 auto oldResultShape = old_result_val.getType().cast<ShapedType>().getShape();
                 
@@ -725,6 +758,12 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 newOp = builder.create<mlir::linalg::AddOp>(builder.getUnknownLoc(), std::vector<mlir::Value>{arg1_val, arg2_val}, std::vector<mlir::Value>{resultTensor});    
 
                 mlir::Value new_result_val = newOp->getResult(0);
+
+                if (old_id > largest_id) {
+                    id_to_value[old_id] = new_result_val;
+                    continue;
+                }
+
                 // find the corresponding operation to replace
                 bool found = false;
                 mlir::linalg::LinalgOp opToRemove;

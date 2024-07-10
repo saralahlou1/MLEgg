@@ -12,6 +12,7 @@ pub struct Graph {
     nodes: BTreeMap<i32, Node>,
 }
 
+#[derive(Clone)]
 pub struct Node {
     data: String,
     children: Vec<i32>,
@@ -42,6 +43,9 @@ impl Node {
     }
     pub fn get_old_id(&self) -> &i32 {
         &self.old_id
+    }
+    pub fn get_old_op_id(&self) -> &i32 {
+        &self.old_op_id
     }
 }
 
@@ -139,6 +143,38 @@ impl Graph {
         P: AsRef<Path>,
     {
 
+        // we try here to get rid off the -1 old id value introduced for some new ops
+        // we first find the highest old id
+        let mut largest_id = 0;
+        for (_id, node) in &self.nodes {
+            if *node.get_old_id() > largest_id {
+                largest_id = *node.get_old_id();
+            }
+        }
+        largest_id += 1;
+
+        let mut cleaned_map: BTreeMap<i32, Node> = BTreeMap::new();
+        for (id, node) in &self.nodes {
+            if *node.get_old_id() == -1 {
+                let new_id = largest_id;
+                largest_id += 1;
+                let data = node.get_data().to_string();
+                let children = node.get_children().to_vec();
+                let rows = *node.get_rows();
+                let columns = *node.get_columns();
+                let mut old_op_id = *node.get_old_op_id();
+                println!("Found node with data: {} and dims {}x{} with old_id -1.", data, rows, columns);
+                println!("New old_id value: {}", new_id);
+                if old_op_id == -1 {
+                    old_op_id = new_id;
+                }
+                cleaned_map.insert(*id, Node { data, children, rows, columns, old_id: new_id, old_op_id});
+
+            } else {
+                cleaned_map.insert(*id, node.clone());
+            }
+        }
+
         // read a file and parse it to dot
         // open the file
         let mut file = match File::create(path) {
@@ -149,7 +185,7 @@ impl Graph {
         file.write_all(b"digraph {\n").expect("couldn't write data");
 
         // list of nodes
-        for (id, node) in &self.nodes {
+        for (id, node) in &cleaned_map {
             let mut rows = node.rows.to_string();
             let mut columns = node.columns.to_string();
             // check if the value of dims is not useful
