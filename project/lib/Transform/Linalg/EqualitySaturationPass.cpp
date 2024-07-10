@@ -255,12 +255,15 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
         }
 
+        // we will keep track of the variable representing the largest key in the graph
+        // this is to later check if the old_id refers to an op that already existed or a new one
+        // this case doesn't happen for now but it's better to make the code robust
+        // and handle this in case it becomes an issue one day
         int largest_id = 0;
         for (auto node : graph.get_nodes()) {
             if (node.first > largest_id){
                 largest_id = node.first;
             }
-            
         }
 
         std::cout << "largest id in old graph: " << largest_id << " \n";
@@ -269,7 +272,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
         graph.to_file("out.gv");
 
         // pass it to rust program
-        // TODO: FFI binding?
         if (!system("eq-sub out.gv out2.gv")) {
             // the Rust program failed!
         }
@@ -279,35 +281,32 @@ void mlir::EqualitySaturationPass::runOnOperation() {
         Graph returned = graph.from_file("out2.gv");
 
         std::cout << "constructed the graph! \n";
-        // reassociate the nodes in the result with the nodes in the block
-        // these are numbered the same as the original graph; we can use them together to rebuild
-        // what do i do assuming i have a functional graph?
-        // this is janky, but we can't just use the standard rewrite application -- which assumes
-
+        
         // insert at end of block. this isn't necessarily good -- it would be better to have an alg
         // figure out where the best place to insert would be
-	mlir::OpBuilder builder(&(block.back()));
+        mlir::OpBuilder builder(&(block.back()));
 
 
-    for (const auto& pair : id_to_value) {
-        auto shape = pair.second.getType().cast<ShapedType>().getShape();
+        for (const auto& pair : id_to_value) {
+            auto shape = pair.second.getType().cast<ShapedType>().getShape();
 
-		std::cout << "id " << pair.first << " with type " ;
-        for (int64_t dim : shape) {
-            std::cout << dim << " ";
+            std::cout << "id " << pair.first << " with type " ;
+            for (int64_t dim : shape) {
+                std::cout << dim << " ";
+            }
+            std::cout << "\n";
+        
         }
-        std::cout << "\n";
-	
-	}
 
 
-    // maybe the problem comes from considering the ops not always in the correct order
-    // we should do breath first traversal to order the nodes and then traverse them 
-    // in reverse order
-    // this way we avoid refering to an op not yet created?
-    auto nodes = returned.get_nodes();
-    for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {
-        // c++ doesn't have good switches.
+        // to make sure the ops are always considered in the correct order
+        // we should do breath first traversal to order the nodes and then traverse them 
+        // in reverse order
+        // this way we avoid refering to an op not yet created
+        // this is not done yet (I think it is already done automatically)
+
+        auto nodes = returned.get_nodes();
+        for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {
             // if the data is an operation, match on the operation and create a new one to insert
             int old_id = node->second.old_id;
             int old_op_id = node->second.old_op_id;
@@ -363,11 +362,12 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 auto& old_op_val = id_to_value.find(old_op_id)->second;
                 
 
+                // we only make any changes if the old operation existed before
+                // not very sure about this part but it doesn't cause issues with our present rules
                 if (old_id <= largest_id) {
                     // we now search for the operation to replace (corresponds to old op id)
                     // we only need to search in the filtered operations this time
                     found = false;
-                    mlir::linalg::LinalgOp opToRemove;
                     for (mlir::linalg::LinalgOp op : filtered_ops) {
                         mlir::Operation *internalOperation = op.getOperation();
                         mlir::Value result;
@@ -388,7 +388,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                                 op->replaceAllUsesWith(matrixOp);
                                 op->replaceUsesOfWith(old_op_val, result_val);
                                 op.erase();
-                                opToRemove = op;
                                 break;
                             }
                         } else {
@@ -404,9 +403,11 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 // here even if A has old id != old op id, we don't need to perform any replacements
                 // since we were the ones to introduce the op
                 if (found){
+                    // in this case, we already found and replaced an operation
+                    // so we move on to the next iteration
                     continue;
                 }
-                // if not found, we go to the other cases
+                // else we go to the other cases to perform any necessary rewrite
                 std::cout << "Checking other cases... \n";
             }
             
@@ -461,21 +462,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 auto resultType = RankedTensorType::get(resultShape, lhsType.getElementType());
                 
                 std::cout << "result shape... " << lhsShape[0] << "  " << rhsShape[1] << "\n";
-                // here same issue as in matmul
-                // dot too probably
-                // Ensure resultType and elementType are properly initialized
-                if (!resultType) {
-                    llvm::errs() << "Result type is null\n";
-                    return;
-                }
-                if (!elementType) {
-                    llvm::errs() << "Element type is null\n";
-                    return;
-                }
 
-
-                // when creating the result tensor there is sometimes an error
-                // search for why
                 mlir::Location loc = builder.getUnknownLoc();
                 Value resultTensor = builder.create<tensor::EmptyOp>(loc, resultType.getShape(), elementType);
 
@@ -488,9 +475,15 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 
                 mlir::Operation *newOp;
                 newOp = builder.create<mlir::linalg::MatmulOp>(builder.getUnknownLoc(), std::vector<mlir::Value>{arg1_val, arg2_val}, std::vector<mlir::Value>{resultTensor});    
- 
+
                 mlir::Value new_result_val = newOp->getResult(0);
+
+                // before checking the old result type and searching for an op to replace,
+                // we check if this is a newly introduced op. 
+                // If so, we don't need to replace or erase or check anything
                 if (old_id > largest_id) {
+                    // we update the result val in the map and move to the next iteration
+                    // (since it can be used later on as an argument to some other op)
                     id_to_value[old_id] = new_result_val;
                     continue;
                 }
@@ -529,11 +522,9 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                 // the issue that sometimes comes is caused by the code bellow
                 // find the corresponding operation to replace
                 bool found = false;
-                mlir::linalg::LinalgOp opToRemove;
 
                 for (mlir::linalg::LinalgOp op : filtered_ops) {
                     mlir::Operation *internalOperation = op.getOperation();
-                    // mlir::Value result = internalOperation->getResult(0);
                     mlir::Value result;
                     if (internalOperation->getNumResults() != 0){
                         result = internalOperation->getResult(0);
@@ -548,11 +539,9 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                             }
                         }
                         if (found){
-                            std::cout << "got hereee. \n";
                             op->replaceAllUsesWith(newOp);
                             op.erase();
                             std::cout << "erased the op \n";
-                            opToRemove = op;
                             break;
                         }
                     } else {
@@ -560,7 +549,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                     }
                     
                 }
-                // filtered_ops.remove(opToRemove);
 
                 id_to_value[old_id] = new_result_val;
 
@@ -639,6 +627,9 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
 
                 mlir::Value new_result_val = newOp->getResult(0);
+
+                // similar to matmul
+                // we check if this is a newly introduced op. 
                 if (old_id > largest_id) {
                     id_to_value[old_id] = new_result_val;
                     continue;
@@ -678,7 +669,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
                 // find the corresponding operation to replace
                 bool found = false;
-                mlir::linalg::LinalgOp opToRemove;
 
                 for (mlir::linalg::LinalgOp op : filtered_ops) {
                     mlir::Operation *internalOperation = op.getOperation();
@@ -701,12 +691,10 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                     if (found){
                         op->replaceAllUsesWith(newOp);
 	                    op.erase();
-                        opToRemove = op;
                         break;
                     }
                     
                 }
-                // filtered_ops.remove(opToRemove);
 
                 id_to_value[old_id] = new_result_val;
 
@@ -759,6 +747,8 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
                 mlir::Value new_result_val = newOp->getResult(0);
 
+                // similar to matmul
+                // we check if this is a newly introduced op. 
                 if (old_id > largest_id) {
                     id_to_value[old_id] = new_result_val;
                     continue;
@@ -766,7 +756,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
 
                 // find the corresponding operation to replace
                 bool found = false;
-                mlir::linalg::LinalgOp opToRemove;
 
                 for (mlir::linalg::LinalgOp op : filtered_ops) {
                     
@@ -786,7 +775,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                         if (found){
                             op->replaceAllUsesWith(newOp);
                             op.erase();
-                            opToRemove = op;
                             break;
                         }
                     } else {
@@ -794,8 +782,6 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                     }
                     
                 }
-                
-                // filtered_ops.remove(opToRemove);
 
                 id_to_value[old_id] = new_result_val;
             }
@@ -815,12 +801,12 @@ void mlir::EqualitySaturationPass::runOnOperation() {
             // check the number of uses they have. If there are none then erase the op
             // There is no need to do this after consideration
             // after this pass, we will always run the generic optimisations such as code elimination
-    }
+        }
 
 
         
 
-}
+    }
 }
 
 bool is_number(std::string str) {

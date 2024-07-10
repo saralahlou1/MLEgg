@@ -22,9 +22,10 @@ pub struct Node {
     rows: i32,
     columns: i32,
     // refers the the position of the mlir value in the map in EqualitySaturationPass.cpp
+    // we can think if it as a link to the corresponding mlir value of the current op
     old_id: i32,
     // keeps a link representing the old operation in the map in EqualitySaturationPass.cpp
-    // this can change only when applying the rule T(T) = id
+    // this can change in few cases (ex: when applying the rule T(T) = id)
     old_op_id: i32
 }
 
@@ -144,6 +145,8 @@ impl Graph {
     {
 
         // we try here to get rid off the -1 old id value introduced for some new ops
+        // during the rewrites. Leaving them makes the code error prone and not robust
+
         // we first find the highest old id
         let mut largest_id = 0;
         for (_id, node) in &self.nodes {
@@ -151,26 +154,42 @@ impl Graph {
                 largest_id = *node.get_old_id();
             }
         }
+
+        // we increment to get a new id not existing in the old_id list
+        // this gives us a new key to use in the map 
+        // for id -> mlir::value used in EqualitySaturationPass.cpp
         largest_id += 1;
 
+        // we initialize a new map which will store the nodes with updated old_id when needed
+        // we use an ordered map to keep the program deterministic devoid of randomness
         let mut cleaned_map: BTreeMap<i32, Node> = BTreeMap::new();
         for (id, node) in &self.nodes {
+            // We check id the old_id is -1 to see if we need any updates for the node
             if *node.get_old_id() == -1 {
                 let new_id = largest_id;
                 largest_id += 1;
+
                 let data = node.get_data().to_string();
                 let children = node.get_children().to_vec();
                 let rows = *node.get_rows();
                 let columns = *node.get_columns();
                 let mut old_op_id = *node.get_old_op_id();
+
                 println!("Found node with data: {} and dims {}x{} with old_id -1.", data, rows, columns);
                 println!("New old_id value: {}", new_id);
+                
+                // we check if old op id had the same value as old id
                 if old_op_id == -1 {
+                    // if so we re-assign it to the same value again
                     old_op_id = new_id;
                 }
+
+                // insert node with updated fields
                 cleaned_map.insert(*id, Node { data, children, rows, columns, old_id: new_id, old_op_id});
 
             } else {
+                // else the old_id value is normal  
+                // we only need to clone the original node and add it to the map
                 cleaned_map.insert(*id, node.clone());
             }
         }
@@ -184,6 +203,7 @@ impl Graph {
 
         file.write_all(b"digraph {\n").expect("couldn't write data");
 
+        
         // list of nodes
         for (id, node) in &cleaned_map {
             let mut rows = node.rows.to_string();
