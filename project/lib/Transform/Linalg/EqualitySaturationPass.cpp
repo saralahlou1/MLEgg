@@ -6,6 +6,7 @@
 #include <mlir/Dialect/Linalg/IR/Linalg.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+// #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Operation.h"
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/OperationSupport.h>
@@ -15,6 +16,10 @@
 #include <vector>
 #include <map>
 #include "mlir/IR/PatternMatch.h"
+
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Pass/PassRegistry.h>
@@ -281,6 +286,12 @@ void mlir::EqualitySaturationPass::runOnOperation() {
         Graph returned = graph.from_file("out2.gv");
 
         std::cout << "constructed the graph! \n";
+        
+
+        if (block.empty()){
+            std::cout << "Empty block! \n";
+            continue;
+        }
         
         // insert at end of block. this isn't necessarily good -- it would be better to have an alg
         // figure out where the best place to insert would be
@@ -690,7 +701,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
                     }
                     if (found){
                         op->replaceAllUsesWith(newOp);
-	                    op.erase();
+                        op.erase();
                         break;
                     }
                     
@@ -802,8 +813,7 @@ void mlir::EqualitySaturationPass::runOnOperation() {
             // There is no need to do this after consideration
             // after this pass, we will always run the generic optimisations such as code elimination
         }
-
-
+    
         
 
     }
