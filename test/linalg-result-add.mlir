@@ -4,7 +4,7 @@ module {
   %2 = tensor.empty() : tensor<3x4xf32>
   %3 = tensor.empty() : tensor<3x4xf32>
   %4 = tensor.empty() : tensor<2x4xf32>
-  %5 = linalg.matmul ins(%0, %1 : tensor<3x2xf32>, tensor<2x4xf32>) outs(%2 : tensor<3x4xf32>) -> tensor<3x4xf32>
+  %5 = linalg.matmul ins(%0, %4 : tensor<3x2xf32>, tensor<2x4xf32>) outs(%3 : tensor<3x4xf32>) -> tensor<3x4xf32>
   %6 = tensor.empty() : tensor<3x4xf32>
   %7 = tensor.empty() : tensor<2x4xf32>
   %8 = linalg.add ins(%1, %4 : tensor<2x4xf32>, tensor<2x4xf32>) outs(%7 : tensor<2x4xf32>) -> tensor<2x4xf32>

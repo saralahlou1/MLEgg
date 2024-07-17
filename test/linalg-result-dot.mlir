@@ -7,6 +7,6 @@ module {
   %expanded = tensor.expand_shape %0 [[0, 1]] : tensor<2xf32> into tensor<2x1xf32>
   %3 = tensor.empty() : tensor<1x1xf32>
   %4 = linalg.matmul ins(%2, %expanded : tensor<1x2xf32>, tensor<2x1xf32>) outs(%3 : tensor<1x1xf32>) -> tensor<1x1xf32>
-  %extracted_slice_0 = tensor.extract_slice %3[0, 0] [1, 1] [1, 1] : tensor<1x1xf32> to tensor<f32>
+  %extracted_slice_0 = tensor.extract_slice %4[0, 0] [1, 1] [1, 1] : tensor<1x1xf32> to tensor<f32>
 }
 

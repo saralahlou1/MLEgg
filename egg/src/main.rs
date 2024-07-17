@@ -7,7 +7,7 @@ mod expr;
 mod graph;
 mod mlir;
 
-// this is the entry point
+// this is the entry point from our mlir pass
 fn main() {
     // get the input file and read it
     let args: Vec<String> = env::args().collect();
@@ -17,10 +17,13 @@ fn main() {
     // the out path of the file to write
     let out_path = &args[2];
 
-    // parse the dot and convert it into a list of structs
+    // parse the dot and convert it into a graph
     let graph = graph::Graph::from_file(path::Path::new(in_path));
 
-    // conver the structs into egg exprs
+    // conver the graph into a list of egg exprs
+    // the list contains all the independant exprs
+    // TODO: we can try puting all these exps under a dummy root
+    // explained in mlir.rs
     let expr_list= expr::from_dag(&graph);
 
     let mut best_expr_list: Vec<RecExpr<MLIR>> = Vec::new();
@@ -36,10 +39,10 @@ fn main() {
         println!("{}", best);
     }
     
-    // convert the egg exprs into structs
+    // convert the list of egg exprs back to a graph
     let result = expr::to_dag(&best_expr_list);
 
-    // conver the structs back into json, writing the file out
+    // conver the graph back into dot format, writing the file out
     result.to_file(path::Path::new(out_path));
     
 }
