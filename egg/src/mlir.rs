@@ -201,7 +201,7 @@ impl<'a> CostFunction<MLIR> for DimCostFn<'a> {
                 a_dim[0] * a_dim[1] * b_dim[1] + 3
             }
 
-            // nx1 dot nx1 around n^2 operations and 1 loop
+            // nx1 dot nx1 around n operations and 1 loop
             MLIR::Dot([a, b, _c, _d]) => {
                 let a_dim = self.egraph[*a].data;
                 let b_dim = self.egraph[*b].data;
